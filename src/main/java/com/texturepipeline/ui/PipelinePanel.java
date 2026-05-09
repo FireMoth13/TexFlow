@@ -128,6 +128,11 @@ public class PipelinePanel {
         webpExportBtn.setMaxWidth(Double.MAX_VALUE);
         webpExportBtn.setOnAction(e -> mainWindow.onExportWebP());
 
+        Button ddsExportBtn = new Button("📥 导出当前为 DDS (BC1)");
+        ddsExportBtn.setStyle("-fx-background-color: #cba6f7; -fx-text-fill: #1e1e2e;");
+        ddsExportBtn.setMaxWidth(Double.MAX_VALUE);
+        ddsExportBtn.setOnAction(e -> mainWindow.onExportDDS());
+
         Separator sep4 = new Separator();
         sep4.setStyle("-fx-background: #45475a;");
 
@@ -163,7 +168,7 @@ public class PipelinePanel {
                 sep2, normalTitle, normalDesc, strengthLabel, strengthValueLabel, strengthSlider,
                 edgeModeCombo, normalBtn,
                 sep3, exportTitle, exportBtn,
-                webpQualityLabel, webpValueLabel, webpQualitySlider, webpExportBtn,
+                webpQualityLabel, webpValueLabel, webpQualitySlider, webpExportBtn, ddsExportBtn,
                 sep4, batchTitle, batchDesc, importFolderBtn, batchNormalBtn, batchMipBtn, batchWebpBtn
         );
     }

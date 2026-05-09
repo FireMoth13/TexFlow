@@ -3,6 +3,7 @@ package com.texturepipeline.ui;
 import com.texturepipeline.engine.BatchProcessor;
 import com.texturepipeline.engine.FormatConverter;
 import com.texturepipeline.engine.PipelineEngine;
+import com.texturepipeline.engine.TextureCompressor;
 import com.texturepipeline.model.TextureImage;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -381,6 +382,48 @@ public class MainWindow {
                     log("✓ WebP 导出成功 (q=" + String.format("%.0f", quality) + "): " + path)))
               .exceptionally(ex -> {
                   Platform.runLater(() -> log("✗ WebP 导出失败: " + ex.getMessage()));
+                  return null;
+              });
+        }
+    }
+
+    void onExportDDS() {
+        TextureImage current = imagePreview.getCurrentTexture();
+        if (current == null) {
+            log("⚠ 没有可导出的纹理");
+            return;
+        }
+        BufferedImage image = current.getImage();
+        if (image.getWidth() % 4 != 0 || image.getHeight() % 4 != 0) {
+            log("⚠ BC1 压缩要求宽高为 4 的倍数，当前: "
+                    + image.getWidth() + "x" + image.getHeight());
+            return;
+        }
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("导出 DDS (BC1)");
+        String ddsName = current.getName().replaceFirst("\\.[^.]+$", "") + ".dds";
+        chooser.setInitialFileName(ddsName);
+        chooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("DDS 纹理", "*.dds"));
+        File file = chooser.showSaveDialog(root.getScene().getWindow());
+        if (file != null) {
+            int origSize = image.getWidth() * image.getHeight() * 4;
+            int compSize = TextureCompressor.compressedSize(
+                    image.getWidth(), image.getHeight());
+            float ratio = (float) compSize / origSize * 100;
+            String sizeInfo = String.format("(%.0f%%, %d→%d bytes)", ratio, origSize, compSize);
+
+            CompletableFuture.supplyAsync(() -> {
+                try {
+                    TextureCompressor.compressToDDS(image, file.toPath());
+                    return file.getAbsolutePath();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }).thenAccept(path -> Platform.runLater(() ->
+                    log("✓ DDS(BC1) 导出成功 " + sizeInfo + ": " + path)))
+              .exceptionally(ex -> {
+                  Platform.runLater(() -> log("✗ DDS 导出失败: " + ex.getMessage()));
                   return null;
               });
         }

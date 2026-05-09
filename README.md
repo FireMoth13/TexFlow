@@ -11,6 +11,7 @@ PBR 纹理处理工具 — 游戏开发者的纹理流水线工具箱。支持�
 | **法线贴图烘焙** | Sobel 3×3 算子从高度图生成切线空间法线贴图，可调节强度 | 灰度高度图 | 法线贴图（淡紫色） |
 | **多线程批处理** | 导入文件夹，对全部纹理并行批量生成法线贴图 / Mipmap | 整个文件夹 | 批量处理结果 + 进度日志 |
 | **格式转换** | PNG ↔ WebP 互转，可调节压缩质量 (0~100) | PNG / WebP | WebP / PNG |
+| **纹理压缩** | 纯 Java BC1 (DXT1) GPU 块压缩，导出 .dds 文件，8:1 压缩比 | RGBA 图像 (4×对齐) | DDS 文件 |
 
 ## 技术栈
 
@@ -48,7 +49,8 @@ texture-pipeline-tool/
 │   │   ├── NormalMapGenerator.java   ← 法线贴图烘焙
 │   │   ├── PipelineEngine.java       ← 异步流水线编排
 │   │   ├── BatchProcessor.java       ← 多线程批量处理
-│   │   └── FormatConverter.java      ← PNG↔WebP 格式转换
+│   │   ├── FormatConverter.java      ← PNG↔WebP 格式转换
+│   │   └── TextureCompressor.java    ← BC1/DXT1 GPU 块压缩
 │   └── ui/                           ← JavaFX 界面
 │       ├── MainWindow.java           ← 主窗口 + 事件路由
 │       ├── ImagePreview.java         ← Canvas 像素预览
@@ -96,6 +98,12 @@ texture-pipeline-tool/
 2. 调节 **WebP 压缩质量** 滑块（0~100，默认80）
 3. 点击 **📥 导出当前为 WebP** 导出单张，或点击 **🔄 批量导出 WebP** 选择输出目录批量转换
 
+### 纹理压缩 (BC1 / DXT1)
+
+1. 导入 RGBA 纹理（宽高须为 4 的倍数）
+2. 点击 **📥 导出当前为 DDS (BC1)** 执行 GPU 块压缩
+3. 日志输出压缩比（固定 8:1）和文件大小信息
+
 ## 算法原理
 
 ### 通道打包
@@ -123,6 +131,20 @@ PBR 材质标准工作流：将 Metallic（金属度）、Roughness（粗糙度�
 RGB 编码:    (R, G, B) = ((n+1)/2 × 255) 各分量
 ```
 
+### BC1 块压缩 (DXT1)
+
+```
+图像按 4×4 块分割，每块独立压缩为 64-bit：
+
+[0-15]  c0 RGB565 (min 颜色)
+[16-31] c1 RGB565 (max 颜色)
+[32-63] 16 × 2-bit 索引 → 四色调色板:
+        {c0, c1, 2/3*c0+1/3*c1, 1/3*c0+2/3*c1}
+
+每像素从调色板中选最近色，索引打包为 32 bits。
+固定压缩比 8:1（RGBA 64B→8B），所有桌面 GPU 原生支持。
+```
+
 ## Vibe Coding 说明
 
 本项目包含一个 OpenCode skill 文件（`.opencode/skills/texture-pipeline/SKILL.md`），定义了项目规范：
@@ -144,7 +166,7 @@ RGB 编码:    (R, G, B) = ((n+1)/2 × 255) 各分量
 - [x] 单元测试（JUnit 5, 21 用例）
 - [x] 多线程批处理
 - [x] 纹理格式转换（PNG→WebP）
-- [ ] 纹理压缩（BC7/ETC2）
+- [x] 纹理压缩（BC1/DXT1，纯 Java 实现）
 
 ## License
 
