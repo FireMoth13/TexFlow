@@ -41,6 +41,12 @@
             <artifactId>javafx-swing</artifactId>
             <version>${javafx.version}</version>
         </dependency>
+        <!-- WebP 编码支持 (ImageIO 插件，原生库内置) -->
+        <dependency>
+            <groupId>com.github.usefulness</groupId>
+            <artifactId>webp-imageio</artifactId>
+            <version>0.10.2</version>
+        </dependency>
     </dependencies>
 
     <build>

@@ -22,6 +22,7 @@ public class PipelinePanel {
     private final ComboBox<String> edgeModeCombo;
     private final Slider strengthSlider;
     private final Label strengthValueLabel;
+    private final Slider webpQualitySlider;
 
     public PipelinePanel(MainWindow mainWindow) {
         root = new VBox(12);
@@ -105,6 +106,28 @@ public class PipelinePanel {
         exportBtn.setMaxWidth(Double.MAX_VALUE);
         exportBtn.setOnAction(e -> mainWindow.onExport());
 
+        // WebP 导出
+        Label webpQualityLabel = new Label("WebP 压缩质量:");
+        webpQualityLabel.setStyle("-fx-text-fill: #bac2de; -fx-font-size: 12px;");
+        Label webpValueLabel = new Label("80");
+        webpValueLabel.setStyle("-fx-text-fill: #a6e3a1; -fx-font-size: 12px;");
+
+        Slider webpQualitySlider = new Slider(0, 100, 80);
+        webpQualitySlider.setMaxWidth(Double.MAX_VALUE);
+        webpQualitySlider.setShowTickLabels(true);
+        webpQualitySlider.setMajorTickUnit(25);
+        webpQualitySlider.setBlockIncrement(5);
+        webpValueLabel.setText(String.format("%.0f", webpQualitySlider.getValue()));
+        webpQualitySlider.valueProperty().addListener((obs, oldVal, newVal) -> {
+            webpValueLabel.setText(String.format("%.0f", newVal.doubleValue()));
+        });
+        this.webpQualitySlider = webpQualitySlider;
+
+        Button webpExportBtn = new Button("📥 导出当前为 WebP");
+        webpExportBtn.setStyle("-fx-background-color: #a6e3a1; -fx-text-fill: #1e1e2e;");
+        webpExportBtn.setMaxWidth(Double.MAX_VALUE);
+        webpExportBtn.setOnAction(e -> mainWindow.onExportWebP());
+
         Separator sep4 = new Separator();
         sep4.setStyle("-fx-background: #45475a;");
 
@@ -129,13 +152,19 @@ public class PipelinePanel {
         batchMipBtn.setMaxWidth(Double.MAX_VALUE);
         batchMipBtn.setOnAction(e -> mainWindow.onBatchMipmaps());
 
+        Button batchWebpBtn = new Button("🔄 批量导出 WebP");
+        batchWebpBtn.setStyle("-fx-background-color: #a6e3a1; -fx-text-fill: #1e1e2e; -fx-font-weight: bold;");
+        batchWebpBtn.setMaxWidth(Double.MAX_VALUE);
+        batchWebpBtn.setOnAction(e -> mainWindow.onBatchWebP());
+
         root.getChildren().addAll(
                 packTitle, packDesc, rChannelCombo, gChannelCombo, bChannelCombo, packBtn,
                 sep1, mipTitle, mipDesc, mipBtn,
                 sep2, normalTitle, normalDesc, strengthLabel, strengthValueLabel, strengthSlider,
                 edgeModeCombo, normalBtn,
                 sep3, exportTitle, exportBtn,
-                sep4, batchTitle, batchDesc, importFolderBtn, batchNormalBtn, batchMipBtn
+                webpQualityLabel, webpValueLabel, webpQualitySlider, webpExportBtn,
+                sep4, batchTitle, batchDesc, importFolderBtn, batchNormalBtn, batchMipBtn, batchWebpBtn
         );
     }
 
@@ -163,6 +192,7 @@ public class PipelinePanel {
     public ComboBox<String> getBChannelCombo() { return bChannelCombo; }
     public ComboBox<String> getEdgeModeCombo() { return edgeModeCombo; }
     public Slider getStrengthSlider() { return strengthSlider; }
+    public Slider getWebpQualitySlider() { return webpQualitySlider; }
 
     public VBox getRoot() { return root; }
 }

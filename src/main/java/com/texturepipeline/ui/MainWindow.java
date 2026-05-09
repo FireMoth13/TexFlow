@@ -1,6 +1,7 @@
 package com.texturepipeline.ui;
 
 import com.texturepipeline.engine.BatchProcessor;
+import com.texturepipeline.engine.FormatConverter;
 import com.texturepipeline.engine.PipelineEngine;
 import com.texturepipeline.model.TextureImage;
 import javafx.application.Platform;
@@ -354,6 +355,37 @@ public class MainWindow {
         }
     }
 
+    void onExportWebP() {
+        TextureImage current = imagePreview.getCurrentTexture();
+        if (current == null) {
+            log("⚠ 没有可导出的纹理");
+            return;
+        }
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("导出 WebP");
+        String webpName = current.getName().replaceFirst("\\.[^.]+$", "") + ".webp";
+        chooser.setInitialFileName(webpName);
+        chooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("WebP 图片", "*.webp"));
+        File file = chooser.showSaveDialog(root.getScene().getWindow());
+        if (file != null) {
+            float quality = (float) pipelinePanel.getWebpQualitySlider().getValue();
+            CompletableFuture.supplyAsync(() -> {
+                try {
+                    FormatConverter.toWebP(current.getImage(), file.toPath(), quality);
+                    return file.getAbsolutePath();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }).thenAccept(path -> Platform.runLater(() ->
+                    log("✓ WebP 导出成功 (q=" + String.format("%.0f", quality) + "): " + path)))
+              .exceptionally(ex -> {
+                  Platform.runLater(() -> log("✗ WebP 导出失败: " + ex.getMessage()));
+                  return null;
+              });
+        }
+    }
+
     void onBatchNormalMaps() {
         if (loadedImages.isEmpty()) {
             log("⚠ 请先导入高度图（可点击\"导入文件夹\"批量加载）");
@@ -418,6 +450,40 @@ public class MainWindow {
             }
         })).exceptionally(ex -> {
             Platform.runLater(() -> log("✗ 批量处理失败: " + ex.getMessage()));
+            return null;
+        });
+    }
+
+    void onBatchWebP() {
+        if (loadedImages.isEmpty()) {
+            log("⚠ 请先导入纹理（可点击\"导入文件夹\"批量加载）");
+            return;
+        }
+        var chooser = new javafx.stage.DirectoryChooser();
+        chooser.setTitle("选择 WebP 输出目录");
+        File dir = chooser.showDialog(root.getScene().getWindow());
+        if (dir == null) return;
+
+        int total = loadedImages.size();
+        float quality = (float) pipelinePanel.getWebpQualitySlider().getValue();
+        log("⚡ 开始批量导出 WebP (q=" + String.format("%.0f", quality)
+                + ", " + total + " 张)...");
+
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                return FormatConverter.batchToWebP(loadedImages, dir.toPath(), quality,
+                        (completed, totalCount, name) ->
+                                Platform.runLater(() ->
+                                        log(String.format("[%d/%d] ✓ %s", completed, totalCount, name))));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }).thenAccept(results -> Platform.runLater(() -> {
+            long successCount = results.stream().filter(r -> r != null).count();
+            log("✓ 批量 WebP 导出完成: " + successCount + "/" + total
+                    + " 张 → " + dir.getAbsolutePath());
+        })).exceptionally(ex -> {
+            Platform.runLater(() -> log("✗ 批量 WebP 导出失败: " + ex.getMessage()));
             return null;
         });
     }

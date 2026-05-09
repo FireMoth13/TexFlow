@@ -10,12 +10,14 @@ PBR 纹理处理工具 — 游戏开发者的纹理流水线工具箱。支持�
 | **Mipmap 生成** | 自动生成 1/2→1/4→...→1px 的 Mipmap 链 | 单张纹理 | 多级缩小的 Mipmap 序列 |
 | **法线贴图烘焙** | Sobel 3×3 算子从高度图生成切线空间法线贴图，可调节强度 | 灰度高度图 | 法线贴图（淡紫色） |
 | **多线程批处理** | 导入文件夹，对全部纹理并行批量生成法线贴图 / Mipmap | 整个文件夹 | 批量处理结果 + 进度日志 |
+| **格式转换** | PNG ↔ WebP 互转，可调节压缩质量 (0~100) | PNG / WebP | WebP / PNG |
 
 ## 技术栈
 
 - **语言**：Java 17
 - **UI**：JavaFX 21（Catppuccin Mocha 暗色主题）
 - **图像处理**：Java 2D `BufferedImage`（零额外依赖）
+- **WebP 编码**：`webp-imageio` (usefulness fork, 原生库内置)
 - **构建**：Maven + `javafx-maven-plugin`
 
 ## 快速开始
@@ -45,7 +47,8 @@ texture-pipeline-tool/
 │   │   ├── MipmapGenerator.java      ← Mipmap 生成
 │   │   ├── NormalMapGenerator.java   ← 法线贴图烘焙
 │   │   ├── PipelineEngine.java       ← 异步流水线编排
-│   │   └── BatchProcessor.java       ← 多线程批量处理
+│   │   ├── BatchProcessor.java       ← 多线程批量处理
+│   │   └── FormatConverter.java      ← PNG↔WebP 格式转换
 │   └── ui/                           ← JavaFX 界面
 │       ├── MainWindow.java           ← 主窗口 + 事件路由
 │       ├── ImagePreview.java         ← Canvas 像素预览
@@ -86,6 +89,12 @@ texture-pipeline-tool/
 2. 调节法线贴图参数（Strength 滑块 + 边界模式）
 3. 点击 **🔄 批量生成法线贴图** 或 **🔄 批量生成 Mipmap**
 4. 日志区显示每张图的处理进度 `[N/总数]`，所有图片并行处理
+
+### 格式转换 (PNG → WebP)
+
+1. 导入纹理（单张或文件夹）
+2. 调节 **WebP 压缩质量** 滑块（0~100，默认80）
+3. 点击 **📥 导出当前为 WebP** 导出单张，或点击 **🔄 批量导出 WebP** 选择输出目录批量转换
 
 ## 算法原理
 
@@ -134,7 +143,7 @@ RGB 编码:    (R, G, B) = ((n+1)/2 × 255) 各分量
 - [x] Strength 参数滑块（法线贴图，值越大凹凸感越强）
 - [x] 单元测试（JUnit 5, 21 用例）
 - [x] 多线程批处理
-- [ ] 纹理格式转换（PNG→WebP）
+- [x] 纹理格式转换（PNG→WebP）
 - [ ] 纹理压缩（BC7/ETC2）
 
 ## License
