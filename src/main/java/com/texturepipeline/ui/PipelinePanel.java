@@ -105,12 +105,37 @@ public class PipelinePanel {
         exportBtn.setMaxWidth(Double.MAX_VALUE);
         exportBtn.setOnAction(e -> mainWindow.onExport());
 
+        Separator sep4 = new Separator();
+        sep4.setStyle("-fx-background: #45475a;");
+
+        // === 批量处理区域 ===
+        Label batchTitle = createSectionTitle("⚡ 批量处理");
+        Label batchDesc = new Label("对已加载的全部纹理执行同一操作\n使用多线程并行处理");
+        batchDesc.setStyle("-fx-text-fill: #6c7086; -fx-font-size: 11px;");
+        batchDesc.setWrapText(true);
+
+        Button importFolderBtn = new Button("📂 导入文件夹");
+        importFolderBtn.setStyle("-fx-background-color: #313244; -fx-text-fill: #cdd6f4;");
+        importFolderBtn.setMaxWidth(Double.MAX_VALUE);
+        importFolderBtn.setOnAction(e -> mainWindow.onImportFolder());
+
+        Button batchNormalBtn = new Button("🔄 批量生成法线贴图");
+        batchNormalBtn.setStyle("-fx-background-color: #f9e2af; -fx-text-fill: #1e1e2e; -fx-font-weight: bold;");
+        batchNormalBtn.setMaxWidth(Double.MAX_VALUE);
+        batchNormalBtn.setOnAction(e -> mainWindow.onBatchNormalMaps());
+
+        Button batchMipBtn = new Button("🔄 批量生成 Mipmap");
+        batchMipBtn.setStyle("-fx-background-color: #89b4fa; -fx-text-fill: #1e1e2e; -fx-font-weight: bold;");
+        batchMipBtn.setMaxWidth(Double.MAX_VALUE);
+        batchMipBtn.setOnAction(e -> mainWindow.onBatchMipmaps());
+
         root.getChildren().addAll(
                 packTitle, packDesc, rChannelCombo, gChannelCombo, bChannelCombo, packBtn,
                 sep1, mipTitle, mipDesc, mipBtn,
                 sep2, normalTitle, normalDesc, strengthLabel, strengthValueLabel, strengthSlider,
                 edgeModeCombo, normalBtn,
-                sep3, exportTitle, exportBtn
+                sep3, exportTitle, exportBtn,
+                sep4, batchTitle, batchDesc, importFolderBtn, batchNormalBtn, batchMipBtn
         );
     }
 

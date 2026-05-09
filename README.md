@@ -9,6 +9,7 @@ PBR 纹理处理工具 — 游戏开发者的纹理流水线工具箱。支持�
 | **通道打包** | 将 Metallic / Roughness / AO 三张灰度图合并为一张 RGB 纹理 | 1~3 张灰度图 | 合并后的 PNG（R=M, G=R, B=AO） |
 | **Mipmap 生成** | 自动生成 1/2→1/4→...→1px 的 Mipmap 链 | 单张纹理 | 多级缩小的 Mipmap 序列 |
 | **法线贴图烘焙** | Sobel 3×3 算子从高度图生成切线空间法线贴图，可调节强度 | 灰度高度图 | 法线贴图（淡紫色） |
+| **多线程批处理** | 导入文件夹，对全部纹理并行批量生成法线贴图 / Mipmap | 整个文件夹 | 批量处理结果 + 进度日志 |
 
 ## 技术栈
 
@@ -43,7 +44,8 @@ texture-pipeline-tool/
 │   │   ├── ChannelPacker.java        ← 通道合并
 │   │   ├── MipmapGenerator.java      ← Mipmap 生成
 │   │   ├── NormalMapGenerator.java   ← 法线贴图烘焙
-│   │   └── PipelineEngine.java       ← 异步流水线编排
+│   │   ├── PipelineEngine.java       ← 异步流水线编排
+│   │   └── BatchProcessor.java       ← 多线程批量处理
 │   └── ui/                           ← JavaFX 界面
 │       ├── MainWindow.java           ← 主窗口 + 事件路由
 │       ├── ImagePreview.java         ← Canvas 像素预览
@@ -77,6 +79,13 @@ texture-pipeline-tool/
 3. 选择边界模式（Clamp 边缘复制 / Wrap 循环平铺）
 4. 点击 **▶ 生成法线贴图**
 5. 导出淡紫色法线贴图
+
+### 多线程批处理
+
+1. 点击 **📂 导入文件夹** 选择包含多张纹理的文件夹
+2. 调节法线贴图参数（Strength 滑块 + 边界模式）
+3. 点击 **🔄 批量生成法线贴图** 或 **🔄 批量生成 Mipmap**
+4. 日志区显示每张图的处理进度 `[N/总数]`，所有图片并行处理
 
 ## 算法原理
 
@@ -124,7 +133,7 @@ RGB 编码:    (R, G, B) = ((n+1)/2 × 255) 各分量
 - [x] 拖拽导入支持
 - [x] Strength 参数滑块（法线贴图，值越大凹凸感越强）
 - [x] 单元测试（JUnit 5, 21 用例）
-- [ ] 多线程批处理
+- [x] 多线程批处理
 - [ ] 纹理格式转换（PNG→WebP）
 - [ ] 纹理压缩（BC7/ETC2）
 

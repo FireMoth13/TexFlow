@@ -1,5 +1,6 @@
 package com.texturepipeline.ui;
 
+import com.texturepipeline.engine.BatchProcessor;
 import com.texturepipeline.engine.PipelineEngine;
 import com.texturepipeline.model.TextureImage;
 import javafx.application.Platform;
@@ -160,6 +161,30 @@ public class MainWindow {
             for (File file : files) {
                 loadImage(file.toPath());
             }
+        }
+    }
+
+    void onImportFolder() {
+        var chooser = new javafx.stage.DirectoryChooser();
+        chooser.setTitle("选择纹理文件夹");
+        File dir = chooser.showDialog(root.getScene().getWindow());
+        if (dir == null) return;
+
+        File[] files = dir.listFiles((f, name) -> {
+            String lower = name.toLowerCase();
+            return lower.endsWith(".png") || lower.endsWith(".jpg")
+                    || lower.endsWith(".jpeg") || lower.endsWith(".tga")
+                    || lower.endsWith(".bmp");
+        });
+
+        if (files == null || files.length == 0) {
+            log("⚠ 文件夹中没有找到图片文件");
+            return;
+        }
+
+        log("导入文件夹: " + dir.getAbsolutePath() + " (" + files.length + " 张)");
+        for (File file : files) {
+            loadImage(file.toPath());
         }
     }
 
@@ -327,6 +352,74 @@ public class MainWindow {
                 log("✗ 导出失败: " + e.getMessage());
             }
         }
+    }
+
+    void onBatchNormalMaps() {
+        if (loadedImages.isEmpty()) {
+            log("⚠ 请先导入高度图（可点击\"导入文件夹\"批量加载）");
+            return;
+        }
+        String modeText = pipelinePanel.getEdgeModeCombo().getValue();
+        boolean wrap = modeText != null && modeText.startsWith("Wrap");
+        float strength = (float) pipelinePanel.getStrengthSlider().getValue();
+
+        int total = loadedImages.size();
+        log("⚡ 开始批量生成法线贴图 (strength=" + String.format("%.1f", strength)
+                + ", mode=" + (wrap ? "Wrap" : "Clamp") + ", " + total + " 张)...");
+
+        BatchProcessor processor = new BatchProcessor();
+        CompletableFuture.supplyAsync(() -> {
+            List<TextureImage> results = processor.batchNormalMaps(
+                    loadedImages, strength, wrap,
+                    (completed, totalCount, name) ->
+                            Platform.runLater(() ->
+                                    log(String.format("[%d/%d] ✓ %s", completed, totalCount, name))));
+            processor.shutdown();
+            return results;
+        }).thenAccept(results -> Platform.runLater(() -> {
+            long successCount = results.stream().filter(r -> r != null).count();
+            log("✓ 批量法线贴图完成: " + successCount + "/" + total + " 张");
+            if (successCount > 0 && results.get(0) != null) {
+                imagePreview.show(results.get(0));
+            }
+        })).exceptionally(ex -> {
+            Platform.runLater(() -> log("✗ 批量处理失败: " + ex.getMessage()));
+            return null;
+        });
+    }
+
+    void onBatchMipmaps() {
+        if (loadedImages.isEmpty()) {
+            log("⚠ 请先导入纹理（可点击\"导入文件夹\"批量加载）");
+            return;
+        }
+        int total = loadedImages.size();
+        log("⚡ 开始批量生成 Mipmap (" + total + " 张)...");
+
+        BatchProcessor processor = new BatchProcessor();
+        CompletableFuture.supplyAsync(() -> {
+            List<List<BufferedImage>> results = processor.batchMipmaps(
+                    loadedImages,
+                    (completed, totalCount, name) ->
+                            Platform.runLater(() ->
+                                    log(String.format("[%d/%d] ✓ %s", completed, totalCount, name))));
+            processor.shutdown();
+            return results;
+        }).thenAccept(results -> Platform.runLater(() -> {
+            long successCount = results.stream().filter(r -> r != null).count();
+            long totalMips = results.stream()
+                    .filter(r -> r != null)
+                    .mapToLong(List::size)
+                    .sum();
+            log("✓ 批量 Mipmap 完成: " + successCount + "/" + total
+                    + " 张，共 " + totalMips + " 级");
+            if (successCount > 0 && !loadedImages.isEmpty()) {
+                imagePreview.show(loadedImages.get(0));
+            }
+        })).exceptionally(ex -> {
+            Platform.runLater(() -> log("✗ 批量处理失败: " + ex.getMessage()));
+            return null;
+        });
     }
 
     private TextureImage findImageByName(String name) {
