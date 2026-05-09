@@ -1,0 +1,41 @@
+[33mcommit 531bb3ae94dbc6caf6a2f6abb12ea3717a883153[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: Kevin_Kaslana <3499741821@qq.com>
+Date:   Sat May 9 11:01:49 2026 +0800
+
+    v1.3 纹理压缩
+
+[33mcommit 0adef5722b87bb562486d819bd7a9ee98a077e7a[m
+Author: Kevin_Kaslana <3499741821@qq.com>
+Date:   Sat May 9 10:54:23 2026 +0800
+
+    v1.2 纹理格式转换
+
+[33mcommit 7b709a11b2f6af03688a2bb3a6a0d65cc5623c73[m
+Author: Kevin_Kaslana <3499741821@qq.com>
+Date:   Sat May 9 10:43:50 2026 +0800
+
+    多线程批处理
+
+[33mcommit fc63f61d94bd51a0f511d0cd7c5e89ca3d44d773[m
+Author: Kevin_Kaslana <3499741821@qq.com>
+Date:   Sat May 9 10:33:14 2026 +0800
+
+    v1.1 更新readme
+
+[33mcommit 83c824ffb62e0b42624a6227bb442a1d0bd12ff1[m
+Author: Kevin_Kaslana <3499741821@qq.com>
+Date:   Sat May 9 10:22:33 2026 +0800
+
+    v1.1 单元测试，UI补全
+
+[33mcommit dad8bdc5265f4f504b671cb938b93a7409f742e8[m
+Author: Kevin_Kaslana <3499741821@qq.com>
+Date:   Fri May 8 11:33:40 2026 +0800
+
+    重新提交
+
+[33mcommit 69349310a118c7dab2ddcda95e1e8c5aa35a6dac[m
+Author: FireMoth13 <3499741821@qq.com>
+Date:   Fri May 8 10:53:53 2026 +0800
+
+    v1.0
