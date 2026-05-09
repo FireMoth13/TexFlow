@@ -90,7 +90,7 @@ PBR 材质标准工作流：将 Metallic（金属度）、Roughness（粗糙度�
 
 水平梯度: dX = (tr + 2×r + br) - (tl + 2×l + bl)
 垂直梯度: dY = (bl + 2×b + br) - (tl + 2×t + tr)
-深度分量: dZ = 1 / strength
+深度分量: dZ = 1 / strength   （strength 越大 → dZ 越小 → 法线越倾斜 → 凹凸感越强）
 
 法线归一化: (nx, ny, nz) = normalize(dX, dY, dZ)
 RGB 编码:    (R, G, B) = ((n+1)/2 × 255) 各分量
@@ -115,7 +115,7 @@ RGB 编码:    (R, G, B) = ((n+1)/2 × 255) 各分量
 - [ ] 拖拽导入支持
 - [ ] 多线程批处理
 - [ ] 纹理格式转换（PNG→WebP）
-- [ ] Strength 参数滑块（法线贴图）
+- [ ] Strength 参数滑块（法线贴图，值越大凹凸感越强）
 - [ ] 纹理压缩（BC7/ETC2）
 
 ## License

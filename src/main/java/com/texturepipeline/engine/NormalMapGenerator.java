@@ -16,7 +16,7 @@ import java.awt.image.BufferedImage;
  */
 public class NormalMapGenerator {
 
-    /** 默认法线强度（值越小凹凸越深） */
+    /** 默认法线强度（值越大凹凸感越强，业界标准约定） */
     private static final float DEFAULT_STRENGTH = 2.0f;
 
     /** 边界处理模式 */
@@ -31,7 +31,7 @@ public class NormalMapGenerator {
      * 从高度图生成法线贴图。
      *
      * @param heightMap 灰度高度图（白=高，黑=低）
-     * @param strength  法线强度，值越小凹凸越深，推荐 0.5~10.0
+     * @param strength  法线强度，值越大凹凸感越强，推荐 0.5~10.0
      * @param edgeMode  边界处理模式
      * @return 法线贴图（R=法线X，G=法线Y，B=法线Z，A=255）
      */

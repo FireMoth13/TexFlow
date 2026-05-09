@@ -10,6 +10,9 @@ import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
+import javafx.scene.input.DragEvent;
+import javafx.scene.input.Dragboard;
+import javafx.scene.input.TransferMode;
 import javafx.stage.FileChooser;
 
 import java.awt.image.BufferedImage;
@@ -111,6 +114,33 @@ public class MainWindow {
         dropLabel.setStyle("-fx-text-fill: #6c7086; -fx-font-size: 14px;");
         dropLabel.setWrapText(true);
         dropZone.getChildren().add(dropLabel);
+
+        // === 拖拽导入事件 ===
+        dropZone.setOnDragOver((DragEvent event) -> {
+            if (event.getGestureSource() != dropZone
+                    && event.getDragboard().hasFiles()) {
+                event.acceptTransferModes(TransferMode.COPY);
+            }
+            event.consume();
+        });
+
+        dropZone.setOnDragDropped((DragEvent event) -> {
+            Dragboard db = event.getDragboard();
+            boolean success = false;
+            if (db.hasFiles()) {
+                for (File file : db.getFiles()) {
+                    String name = file.getName().toLowerCase();
+                    if (name.endsWith(".png") || name.endsWith(".jpg")
+                            || name.endsWith(".jpeg") || name.endsWith(".tga")
+                            || name.endsWith(".bmp")) {
+                        loadImage(file.toPath());
+                    }
+                }
+                success = !db.getFiles().isEmpty();
+            }
+            event.setDropCompleted(success);
+            event.consume();
+        });
 
         ScrollPane scrollPane = new ScrollPane(dropZone);
         scrollPane.setFitToWidth(true);
@@ -259,8 +289,7 @@ public class MainWindow {
 
         String modeText = pipelinePanel.getEdgeModeCombo().getValue();
         boolean wrap = modeText != null && modeText.startsWith("Wrap");
-        // strength 暂写死 2.0，后续加滑块
-        float strength = 2.0f;
+        float strength = (float) pipelinePanel.getStrengthSlider().getValue();
 
         log("开始生成法线贴图: " + selected.getName()
                 + " (strength=" + strength + ", mode=" + (wrap ? "Wrap" : "Clamp") + ")");

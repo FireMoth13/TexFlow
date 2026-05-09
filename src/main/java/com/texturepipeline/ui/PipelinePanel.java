@@ -20,6 +20,8 @@ public class PipelinePanel {
     private final ComboBox<String> gChannelCombo;
     private final ComboBox<String> bChannelCombo;
     private final ComboBox<String> edgeModeCombo;
+    private final Slider strengthSlider;
+    private final Label strengthValueLabel;
 
     public PipelinePanel(MainWindow mainWindow) {
         root = new VBox(12);
@@ -70,6 +72,24 @@ public class PipelinePanel {
         edgeModeCombo.setValue("Clamp（边缘复制）");
         edgeModeCombo.setMaxWidth(Double.MAX_VALUE);
 
+        // Strength 滑块
+        Label strengthLabel = new Label("凹凸强度 (Strength):");
+        strengthLabel.setStyle("-fx-text-fill: #bac2de; -fx-font-size: 12px;");
+        strengthValueLabel = new Label("2.0");
+        strengthValueLabel.setStyle("-fx-text-fill: #f9e2af; -fx-font-size: 12px;");
+
+        strengthSlider = new Slider(0.5, 10.0, 2.0);
+        strengthSlider.setMaxWidth(Double.MAX_VALUE);
+        strengthSlider.setShowTickLabels(true);
+        strengthSlider.setShowTickMarks(true);
+        strengthSlider.setMajorTickUnit(2.0);
+        strengthSlider.setMinorTickCount(3);
+        strengthSlider.setBlockIncrement(0.5);
+        strengthValueLabel.setText(String.format("%.1f", strengthSlider.getValue()));
+        strengthSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
+            strengthValueLabel.setText(String.format("%.1f", newVal.doubleValue()));
+        });
+
         Button normalBtn = new Button("▶ 生成法线贴图");
         normalBtn.setStyle("-fx-background-color: #f9e2af; -fx-text-fill: #1e1e2e; -fx-font-weight: bold;");
         normalBtn.setMaxWidth(Double.MAX_VALUE);
@@ -88,7 +108,8 @@ public class PipelinePanel {
         root.getChildren().addAll(
                 packTitle, packDesc, rChannelCombo, gChannelCombo, bChannelCombo, packBtn,
                 sep1, mipTitle, mipDesc, mipBtn,
-                sep2, normalTitle, normalDesc, edgeModeCombo, normalBtn,
+                sep2, normalTitle, normalDesc, strengthLabel, strengthValueLabel, strengthSlider,
+                edgeModeCombo, normalBtn,
                 sep3, exportTitle, exportBtn
         );
     }
@@ -116,6 +137,7 @@ public class PipelinePanel {
     public ComboBox<String> getGChannelCombo() { return gChannelCombo; }
     public ComboBox<String> getBChannelCombo() { return bChannelCombo; }
     public ComboBox<String> getEdgeModeCombo() { return edgeModeCombo; }
+    public Slider getStrengthSlider() { return strengthSlider; }
 
     public VBox getRoot() { return root; }
 }
