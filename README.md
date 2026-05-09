@@ -8,7 +8,7 @@ PBR 纹理处理工具 — 游戏开发者的纹理流水线工具箱。支持�
 |------|------|------|------|
 | **通道打包** | 将 Metallic / Roughness / AO 三张灰度图合并为一张 RGB 纹理 | 1~3 张灰度图 | 合并后的 PNG（R=M, G=R, B=AO） |
 | **Mipmap 生成** | 自动生成 1/2→1/4→...→1px 的 Mipmap 链 | 单张纹理 | 多级缩小的 Mipmap 序列 |
-| **法线贴图烘焙** | Sobel 3×3 算子从高度图生成切线空间法线贴图 | 灰度高度图 | 法线贴图（淡紫色） |
+| **法线贴图烘焙** | Sobel 3×3 算子从高度图生成切线空间法线贴图，可调节强度 | 灰度高度图 | 法线贴图（淡紫色） |
 
 ## 技术栈
 
@@ -23,6 +23,9 @@ PBR 纹理处理工具 — 游戏开发者的纹理流水线工具箱。支持�
 # 构建
 mvn compile
 
+# 运行测试
+mvn test
+
 # 运行
 mvn javafx:run
 ```
@@ -32,26 +35,31 @@ mvn javafx:run
 ```
 texture-pipeline-tool/
 ├── pom.xml
-└── src/main/java/com/texturepipeline/
-    ├── App.java                      ← 入口
-    ├── model/
-    │   └── TextureImage.java         ← 纹理数据对象
-    ├── engine/                       ← 图像处理算法（纯函数）
-    │   ├── ChannelPacker.java        ← 通道合并
-    │   ├── MipmapGenerator.java      ← Mipmap 生成
-    │   ├── NormalMapGenerator.java   ← 法线贴图烘焙
-    │   └── PipelineEngine.java       ← 异步流水线编排
-    └── ui/                           ← JavaFX 界面
-        ├── MainWindow.java           ← 主窗口 + 事件路由
-        ├── ImagePreview.java         ← Canvas 像素预览
-        └── PipelinePanel.java        ← 控制面板
+├── src/main/java/com/texturepipeline/
+│   ├── App.java                      ← 入口
+│   ├── model/
+│   │   └── TextureImage.java         ← 纹理数据对象
+│   ├── engine/                       ← 图像处理算法（纯函数）
+│   │   ├── ChannelPacker.java        ← 通道合并
+│   │   ├── MipmapGenerator.java      ← Mipmap 生成
+│   │   ├── NormalMapGenerator.java   ← 法线贴图烘焙
+│   │   └── PipelineEngine.java       ← 异步流水线编排
+│   └── ui/                           ← JavaFX 界面
+│       ├── MainWindow.java           ← 主窗口 + 事件路由
+│       ├── ImagePreview.java         ← Canvas 像素预览
+│       └── PipelinePanel.java        ← 控制面板
+└── src/test/java/com/texturepipeline/
+    └── engine/                       ← 单元测试 (JUnit 5)
+        ├── ChannelPackerTest.java
+        ├── MipmapGeneratorTest.java
+        └── NormalMapGeneratorTest.java
 ```
 
 ## 使用指南
 
 ### 通道打包
 
-1. 点击 **📁 导入图片**，加载 Metallic、Roughness、AO 三张灰度图
+1. 点击 **📁 导入图片**（或拖拽图片到左侧面板），加载 Metallic、Roughness、AO 三张灰度图
 2. 在右侧面板分别选择 R（Metallic）、G（Roughness）、B（AO）通道对应的图片
 3. 点击 **▶ 执行打包**
 4. 预览区显示合并结果，点击 **📥 导出** 保存
@@ -64,10 +72,11 @@ texture-pipeline-tool/
 
 ### 法线贴图烘焙
 
-1. 导入一张灰度高度图
-2. 选择边界模式（Clamp 边缘复制 / Wrap 循环平铺）
-3. 点击 **▶ 生成法线贴图**
-4. 导出淡紫色法线贴图
+1. 导入一张灰度高度图（或拖拽到左侧面板）
+2. 调整 **凹凸强度 (Strength)** 滑块（0.5~10.0，值越大凹凸感越强）
+3. 选择边界模式（Clamp 边缘复制 / Wrap 循环平铺）
+4. 点击 **▶ 生成法线贴图**
+5. 导出淡紫色法线贴图
 
 ## 算法原理
 
@@ -112,10 +121,11 @@ RGB 编码:    (R, G, B) = ((n+1)/2 × 255) 各分量
 - [x] 通道打包（MRAO）
 - [x] Mipmap 生成
 - [x] 法线贴图烘焙
-- [ ] 拖拽导入支持
+- [x] 拖拽导入支持
+- [x] Strength 参数滑块（法线贴图，值越大凹凸感越强）
+- [x] 单元测试（JUnit 5, 21 用例）
 - [ ] 多线程批处理
 - [ ] 纹理格式转换（PNG→WebP）
-- [ ] Strength 参数滑块（法线贴图，值越大凹凸感越强）
 - [ ] 纹理压缩（BC7/ETC2）
 
 ## License
