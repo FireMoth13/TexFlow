@@ -9,7 +9,7 @@
     <version>0.1.0</version>
     <packaging>jar</packaging>
 
-    <name>Texture Pipeline Tool</name>
+    <name>TexFlow</name>
     <description>PBR texture channel packing and mipmap generation tool for game developers</description>
 
     <properties>

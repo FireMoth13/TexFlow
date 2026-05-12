@@ -133,6 +133,16 @@ public class PipelinePanel {
         ddsExportBtn.setMaxWidth(Double.MAX_VALUE);
         ddsExportBtn.setOnAction(e -> mainWindow.onExportDDS());
 
+        Button dds3ExportBtn = new Button("📥 导出当前为 DDS (BC3/DXT5)");
+        dds3ExportBtn.setStyle("-fx-background-color: #f5c2e7; -fx-text-fill: #1e1e2e;");
+        dds3ExportBtn.setMaxWidth(Double.MAX_VALUE);
+        dds3ExportBtn.setOnAction(e -> mainWindow.onExportDDS3());
+
+        Button dds7ExportBtn = new Button("📥 导出当前为 DDS (BC7)");
+        dds7ExportBtn.setStyle("-fx-background-color: #eba0ac; -fx-text-fill: #1e1e2e;");
+        dds7ExportBtn.setMaxWidth(Double.MAX_VALUE);
+        dds7ExportBtn.setOnAction(e -> mainWindow.onExportBC7());
+
         Separator sep4 = new Separator();
         sep4.setStyle("-fx-background: #45475a;");
 
@@ -168,7 +178,8 @@ public class PipelinePanel {
                 sep2, normalTitle, normalDesc, strengthLabel, strengthValueLabel, strengthSlider,
                 edgeModeCombo, normalBtn,
                 sep3, exportTitle, exportBtn,
-                webpQualityLabel, webpValueLabel, webpQualitySlider, webpExportBtn, ddsExportBtn,
+                webpQualityLabel, webpValueLabel, webpQualitySlider, webpExportBtn,
+                ddsExportBtn, dds3ExportBtn, dds7ExportBtn,
                 sep4, batchTitle, batchDesc, importFolderBtn, batchNormalBtn, batchMipBtn, batchWebpBtn
         );
     }

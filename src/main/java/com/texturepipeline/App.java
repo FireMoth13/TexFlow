@@ -24,7 +24,7 @@ public class App extends Application {
         String css = getClass().getResource("/styles.css").toExternalForm();
         scene.getStylesheets().add(css);
 
-        stage.setTitle("Texture Pipeline Tool v0.1 — PBR 纹理处理器");
+        stage.setTitle("TexFlow v0.1 — PBR 纹理处理器");
         stage.setScene(scene);
         stage.setMinWidth(800);
         stage.setMinHeight(500);

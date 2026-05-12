@@ -4,6 +4,7 @@ import com.texturepipeline.engine.BatchProcessor;
 import com.texturepipeline.engine.FormatConverter;
 import com.texturepipeline.engine.PipelineEngine;
 import com.texturepipeline.engine.TextureCompressor;
+import com.texturepipeline.engine.TextureCompressor.Format;
 import com.texturepipeline.model.TextureImage;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -41,6 +42,11 @@ public class MainWindow {
     private final PipelinePanel pipelinePanel;
     private final TextArea logArea;
     private final List<TextureImage> loadedImages = new ArrayList<>();
+    private final HistoryManager history = new HistoryManager();
+
+    // 撤销/重做按钮
+    private Button undoBtn;
+    private Button redoBtn;
 
     // 通道选择下拉框
     private final ComboBox<String> rChannelCombo;
@@ -82,7 +88,7 @@ public class MainWindow {
         root.setCenter(centerSplit);
         root.setBottom(logArea);
 
-        log("纹理流水线工具已就绪。拖拽图片到左侧列表，或点击\"导入图片\"。");
+        log("TexFlow 已就绪。拖拽图片到左侧列表，或点击\"导入图片\"。");
         log("支持的操作：通道打包(MRAO)、Mipmap 生成。");
     }
 
@@ -93,7 +99,17 @@ public class MainWindow {
         Button clearBtn = new Button("🗑 清空列表");
         clearBtn.setOnAction(e -> clearAll());
 
-        ToolBar toolbar = new ToolBar(importBtn, clearBtn);
+        undoBtn = new Button("↩ 撤销");
+        undoBtn.setStyle("-fx-background-color: #313244; -fx-text-fill: #6c7086;");
+        undoBtn.setDisable(true);
+        undoBtn.setOnAction(e -> onUndo());
+
+        redoBtn = new Button("↪ 重做");
+        redoBtn.setStyle("-fx-background-color: #313244; -fx-text-fill: #6c7086;");
+        redoBtn.setDisable(true);
+        redoBtn.setOnAction(e -> onRedo());
+
+        ToolBar toolbar = new ToolBar(importBtn, clearBtn, undoBtn, redoBtn);
         toolbar.setStyle("-fx-background-color: #313244;");
         return toolbar;
     }
@@ -265,6 +281,12 @@ public class MainWindow {
             return;
         }
 
+        // 保存当前预览状态到历史
+        TextureImage currentPreview = imagePreview.getCurrentTexture();
+        if (currentPreview != null) {
+            history.pushState(currentPreview);
+        }
+
         log("开始通道打包...");
         PipelineEngine.packChannelsAsync(r, g, b)
                 .thenAccept(result -> Platform.runLater(() -> {
@@ -272,6 +294,7 @@ public class MainWindow {
                     if (!result.outputs.isEmpty()) {
                         imagePreview.show(result.outputs.get(0));
                     }
+                    updateUndoRedoButtons();
                 }))
                 .exceptionally(ex -> {
                     Platform.runLater(() -> {
@@ -292,14 +315,28 @@ public class MainWindow {
             return;
         }
 
+        // 保存当前预览状态到历史
+        TextureImage currentPreview = imagePreview.getCurrentTexture();
+        if (currentPreview != null) {
+            history.pushState(currentPreview);
+        }
+
         log("开始生成 Mipmap: " + selected.getName());
         PipelineEngine.generateMipmapsAsync(selected)
                 .thenAccept(result -> Platform.runLater(() -> {
                     log("✓ " + result.message);
-                    // 显示第一级 Mipmap（原图）在预览中
-                    if (!result.outputs.isEmpty()) {
+                    // 把所有 Mipmap 级别加入文件列表，用户可以逐个点击查看
+                    for (TextureImage mip : result.outputs) {
+                        loadedImages.add(mip);
+                    }
+                    refreshFileList();
+                    // 预览显示第一级缩小版本（mip1），让用户直观看到变化
+                    if (result.outputs.size() > 1) {
+                        imagePreview.show(result.outputs.get(1));
+                    } else if (!result.outputs.isEmpty()) {
                         imagePreview.show(result.outputs.get(0));
                     }
+                    updateUndoRedoButtons();
                 }))
                 .exceptionally(ex -> {
                     Platform.runLater(() -> {
@@ -320,6 +357,12 @@ public class MainWindow {
             return;
         }
 
+        // 保存当前预览状态到历史
+        TextureImage currentPreview = imagePreview.getCurrentTexture();
+        if (currentPreview != null) {
+            history.pushState(currentPreview);
+        }
+
         String modeText = pipelinePanel.getEdgeModeCombo().getValue();
         boolean wrap = modeText != null && modeText.startsWith("Wrap");
         float strength = (float) pipelinePanel.getStrengthSlider().getValue();
@@ -333,6 +376,7 @@ public class MainWindow {
                     if (!result.outputs.isEmpty()) {
                         imagePreview.show(result.outputs.get(0));
                     }
+                    updateUndoRedoButtons();
                 }))
                 .exceptionally(ex -> {
                     Platform.runLater(() -> {
@@ -397,6 +441,18 @@ public class MainWindow {
     }
 
     void onExportDDS() {
+        exportDDS(Format.BC1_DXT1, "BC1");
+    }
+
+    void onExportDDS3() {
+        exportDDS(Format.BC3_DXT5, "BC3/DXT5");
+    }
+
+    void onExportBC7() {
+        exportDDS(Format.BC7, "BC7");
+    }
+
+    private void exportDDS(Format format, String label) {
         TextureImage current = imagePreview.getCurrentTexture();
         if (current == null) {
             log("⚠ 没有可导出的纹理");
@@ -404,12 +460,12 @@ public class MainWindow {
         }
         BufferedImage image = current.getImage();
         if (image.getWidth() % 4 != 0 || image.getHeight() % 4 != 0) {
-            log("⚠ BC1 压缩要求宽高为 4 的倍数，当前: "
+            log("⚠ " + label + " 压缩要求宽高为 4 的倍数，当前: "
                     + image.getWidth() + "x" + image.getHeight());
             return;
         }
         FileChooser chooser = new FileChooser();
-        chooser.setTitle("导出 DDS (BC1)");
+        chooser.setTitle("导出 DDS (" + label + ")");
         String ddsName = current.getName().replaceFirst("\\.[^.]+$", "") + ".dds";
         chooser.setInitialFileName(ddsName);
         chooser.getExtensionFilters().add(
@@ -418,19 +474,19 @@ public class MainWindow {
         if (file != null) {
             int origSize = image.getWidth() * image.getHeight() * 4;
             int compSize = TextureCompressor.compressedSize(
-                    image.getWidth(), image.getHeight());
+                    image.getWidth(), image.getHeight(), format);
             float ratio = (float) compSize / origSize * 100;
-            String sizeInfo = String.format("(%.0f%%, %d→%d bytes)", ratio, origSize, compSize);
+            String sizeInfo = String.format("(%.1f%%, %d→%d bytes)", ratio, origSize, compSize);
 
             CompletableFuture.supplyAsync(() -> {
                 try {
-                    TextureCompressor.compressToDDS(image, file.toPath());
+                    TextureCompressor.compress(image, file.toPath(), format);
                     return file.getAbsolutePath();
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
             }).thenAccept(path -> Platform.runLater(() ->
-                    log("✓ DDS(BC1) 导出成功 " + sizeInfo + ": " + path)))
+                    log("✓ DDS(" + label + ") 导出成功 " + sizeInfo + ": " + path)))
               .exceptionally(ex -> {
                   Platform.runLater(() -> log("✗ DDS 导出失败: " + ex.getMessage()));
                   return null;
@@ -556,8 +612,49 @@ public class MainWindow {
         refreshFileList();
         refreshChannelCombos();
         imagePreview.clear();
+        history.clear();
         logArea.clear();
+        updateUndoRedoButtons();
         log("已清空。");
+    }
+
+    void onUndo() {
+        TextureImage current = imagePreview.getCurrentTexture();
+        if (current == null) return;
+
+        TextureImage prevState = history.undo(current);
+        if (prevState != null) {
+            imagePreview.show(prevState);
+            log("↩ 撤销");
+            updateUndoRedoButtons();
+        }
+    }
+
+    void onRedo() {
+        TextureImage current = imagePreview.getCurrentTexture();
+        if (current == null) return;
+
+        TextureImage nextState = history.redo(current);
+        if (nextState != null) {
+            imagePreview.show(nextState);
+            log("↪ 重做");
+            updateUndoRedoButtons();
+        }
+    }
+
+    private void updateUndoRedoButtons() {
+        if (undoBtn != null) {
+            undoBtn.setDisable(!history.canUndo());
+            undoBtn.setStyle(history.canUndo()
+                    ? "-fx-background-color: #45475a; -fx-text-fill: #cdd6f4;"
+                    : "-fx-background-color: #313244; -fx-text-fill: #6c7086;");
+        }
+        if (redoBtn != null) {
+            redoBtn.setDisable(!history.canRedo());
+            redoBtn.setStyle(history.canRedo()
+                    ? "-fx-background-color: #45475a; -fx-text-fill: #cdd6f4;"
+                    : "-fx-background-color: #313244; -fx-text-fill: #6c7086;");
+        }
     }
 
     void log(String msg) {
