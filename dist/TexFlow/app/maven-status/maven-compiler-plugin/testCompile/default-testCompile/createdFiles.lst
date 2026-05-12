@@ -1,0 +1,3 @@
+com\texturepipeline\engine\ChannelPackerTest.class
+com\texturepipeline\engine\MipmapGeneratorTest.class
+com\texturepipeline\engine\NormalMapGeneratorTest.class

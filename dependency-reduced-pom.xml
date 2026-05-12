@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.texturepipeline</groupId>
   <artifactId>texture-pipeline-tool</artifactId>
-  <name>Texture Pipeline Tool</name>
+  <name>TexFlow</name>
   <version>0.1.0</version>
   <description>PBR texture channel packing and mipmap generation tool for game developers</description>
   <build>
