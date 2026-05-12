@@ -201,7 +201,7 @@ public class MainWindow {
             if (loadedImages.size() == 1) {
                 imagePreview.show(tex);
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             log("错误: 无法加载 " + path.getFileName() + " - " + e.getMessage());
         }
     }
@@ -274,7 +274,10 @@ public class MainWindow {
                     }
                 }))
                 .exceptionally(ex -> {
-                    Platform.runLater(() -> log("✗ 打包失败: " + ex.getMessage()));
+                    Platform.runLater(() -> {
+                        log("✗ 打包失败: " + ex.getMessage());
+                        ex.printStackTrace();
+                    });
                     return null;
                 });
     }
@@ -299,7 +302,10 @@ public class MainWindow {
                     }
                 }))
                 .exceptionally(ex -> {
-                    Platform.runLater(() -> log("✗ Mipmap 生成失败: " + ex.getMessage()));
+                    Platform.runLater(() -> {
+                        log("✗ Mipmap 生成失败: " + ex.getMessage());
+                        ex.printStackTrace();
+                    });
                     return null;
                 });
     }
@@ -329,7 +335,10 @@ public class MainWindow {
                     }
                 }))
                 .exceptionally(ex -> {
-                    Platform.runLater(() -> log("✗ 法线生成失败: " + ex.getMessage()));
+                    Platform.runLater(() -> {
+                        log("✗ 法线生成失败: " + ex.getMessage());
+                        ex.printStackTrace();
+                    });
                     return null;
                 });
     }
