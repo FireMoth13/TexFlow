@@ -76,14 +76,21 @@ public class MainWindow {
         // === 底部：日志 ===
         logArea = new TextArea();
         logArea.setEditable(false);
-        logArea.setPrefRowCount(5);
+        logArea.setPrefRowCount(3);
+        logArea.setMinHeight(60);
+        logArea.setMaxHeight(150);
         logArea.setStyle("-fx-control-inner-background: #181825; -fx-text-fill: #cdd6f4;");
         logArea.setPromptText("处理日志...");
+        BorderPane.setMargin(logArea, new Insets(4, 0, 0, 0));
 
         // 中间区域：文件列表 | 预览 | 控制面板
         SplitPane centerSplit = new SplitPane();
         centerSplit.getItems().addAll(fileListPanel, imagePreview.getRoot(), pipelinePanel.getRoot());
         centerSplit.setDividerPositions(0.20, 0.65);
+        // 设置 SplitPane 最小高度，确保内容不被过度压缩
+        centerSplit.setMinHeight(400);
+        // BorderPane 默认会让 center 区域自适应填充可用空间
+        // 不需要额外设置 VGrow
 
         root.setCenter(centerSplit);
         root.setBottom(logArea);

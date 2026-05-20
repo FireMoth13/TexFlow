@@ -11,11 +11,13 @@ import javafx.scene.text.FontWeight;
  * 处理控制面板 — 通道选择、操作按钮、参数调节。
  *
  * <p>设计思路：垂直布局的控制面板，分三个区域：
- * 通道打包区、Mipmap 生成区、导出区。</p>
+ * 通道打包区、Mipmap 生成区、导出区。
+ * 使用 ScrollPane 包裹，支持窗口高度不足时滚动查看。</p>
  */
 public class PipelinePanel {
 
     private final VBox root;
+    private final ScrollPane scrollPane;
     private final ComboBox<String> rChannelCombo;
     private final ComboBox<String> gChannelCombo;
     private final ComboBox<String> bChannelCombo;
@@ -28,7 +30,14 @@ public class PipelinePanel {
         root = new VBox(12);
         root.setPadding(new Insets(12));
         root.setStyle("-fx-background-color: #181825;");
-        root.setPrefWidth(250);
+        root.setPrefWidth(240);
+        root.setMinWidth(240);
+        
+        // 使用 ScrollPane 包裹 VBox，支持垂直滚动
+        scrollPane = new ScrollPane(root);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setStyle("-fx-background-color: #181825;");
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
 
         // === 通道打包区域 ===
         Label packTitle = createSectionTitle("🎨 通道打包 (MRAO)");
@@ -197,9 +206,6 @@ public class PipelinePanel {
         combo.getItems().add("(无 — 白=1.0)");
         combo.setValue("(无 — 白=1.0)");
         combo.setMaxWidth(Double.MAX_VALUE);
-
-        // 把 label 放在 combo 上面
-        // 这里用简单的布局处理：label 已在外部 VBox 中
         return combo;
     }
 
@@ -210,5 +216,5 @@ public class PipelinePanel {
     public Slider getStrengthSlider() { return strengthSlider; }
     public Slider getWebpQualitySlider() { return webpQualitySlider; }
 
-    public VBox getRoot() { return root; }
+    public ScrollPane getRoot() { return scrollPane; }
 }
