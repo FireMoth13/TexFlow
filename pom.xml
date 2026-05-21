@@ -72,7 +72,7 @@
                     </options>
                 </configuration>
             </plugin>
-            <!-- 打包 fat JAR（排除 JavaFX，它须作为模块单独加载） -->
+            <!-- 打包 fat JAR（包含所有依赖，包括 JavaFX） -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
@@ -89,11 +89,6 @@
                                     <mainClass>com.texturepipeline.Launcher</mainClass>
                                 </transformer>
                             </transformers>
-                            <artifactSet>
-                                <excludes>
-                                    <exclude>org.openjfx:*</exclude>
-                                </excludes>
-                            </artifactSet>
                             <filters>
                                 <filter>
                                     <artifact>*:*</artifact>

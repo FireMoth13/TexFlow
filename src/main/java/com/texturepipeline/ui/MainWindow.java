@@ -7,210 +7,187 @@ import com.texturepipeline.engine.TextureCompressor;
 import com.texturepipeline.engine.TextureCompressor.Format;
 import com.texturepipeline.model.TextureImage;
 import javafx.application.Platform;
+import javafx.embed.swing.SwingFXUtils;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.image.ImageView;
-import javafx.scene.image.PixelWriter;
-import javafx.scene.image.WritableImage;
 import javafx.scene.layout.*;
-import javafx.scene.paint.Color;
 import javafx.scene.input.DragEvent;
 import javafx.scene.input.Dragboard;
 import javafx.scene.input.TransferMode;
 import javafx.stage.FileChooser;
 
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.concurrent.CompletableFuture;
 
-/**
- * 主窗口 — 工具的核心 UI。
- *
- * <p>布局：左侧文件列表 + 中间预览 + 右侧控制面板 + 底部日志。
- * 采用 BorderPane 骨架 + HBox（中左中右）经典的桌面工具布局。</p>
- */
 public class MainWindow {
 
-    private final BorderPane root;
-    private final VBox fileListPanel;
-    private VBox dropZone; // 文件拖放区域，动态更新
+    public static final String NONE_OPTION = "(无)";
+
+    private final BorderPane root = new BorderPane();
+    private final VBox imageListBox = new VBox(6);
+    private final ScrollPane imageListScroll = new ScrollPane(imageListBox);
     private final ImagePreview imagePreview;
     private final PipelinePanel pipelinePanel;
-    private final TextArea logArea;
+    private final TextArea logArea = new TextArea();
     private final List<TextureImage> loadedImages = new ArrayList<>();
     private final HistoryManager history = new HistoryManager();
-
-    // 撤销/重做按钮
-    private Button undoBtn;
-    private Button redoBtn;
-
-    // 通道选择下拉框
+    private final Map<TextureImage, javafx.scene.image.Image> thumbnailCache = new WeakHashMap<>();
     private final ComboBox<String> rChannelCombo;
     private final ComboBox<String> gChannelCombo;
     private final ComboBox<String> bChannelCombo;
+    private Button undoBtn;
+    private Button redoBtn;
 
     public MainWindow() {
-        root = new BorderPane();
         root.setStyle("-fx-background-color: #1e1e2e;");
+        root.setTop(createToolbar());
 
-        // === 顶部工具栏 ===
-        ToolBar toolbar = createToolbar();
-        root.setTop(toolbar);
-
-        // === 左侧：文件列表 ===
-        fileListPanel = createFileListPanel();
-
-        // === 中间：图像预览 ===
+        VBox leftPanel = createImageListPanel();
         imagePreview = new ImagePreview();
-
-        // === 右侧：控制面板 ===
         pipelinePanel = new PipelinePanel(this);
         rChannelCombo = pipelinePanel.getRChannelCombo();
         gChannelCombo = pipelinePanel.getGChannelCombo();
         bChannelCombo = pipelinePanel.getBChannelCombo();
 
-        // === 底部：日志 ===
-        logArea = new TextArea();
         logArea.setEditable(false);
         logArea.setPrefRowCount(3);
         logArea.setMinHeight(60);
-        logArea.setMaxHeight(150);
+        logArea.setMaxHeight(160);
+        logArea.setWrapText(true);
         logArea.setStyle("-fx-control-inner-background: #181825; -fx-text-fill: #cdd6f4;");
-        logArea.setPromptText("处理日志...");
         BorderPane.setMargin(logArea, new Insets(4, 0, 0, 0));
 
-        // 中间区域：文件列表 | 预览 | 控制面板
-        SplitPane centerSplit = new SplitPane();
-        centerSplit.getItems().addAll(fileListPanel, imagePreview.getRoot(), pipelinePanel.getRoot());
-        centerSplit.setDividerPositions(0.20, 0.65);
-        // 设置 SplitPane 最小高度，确保内容不被过度压缩
+        SplitPane centerSplit = new SplitPane(leftPanel, imagePreview.getRoot(), pipelinePanel.getRoot());
+        centerSplit.setDividerPositions(0.22, 0.66);
         centerSplit.setMinHeight(400);
-        // BorderPane 默认会让 center 区域自适应填充可用空间
-        // 不需要额外设置 VGrow
-
         root.setCenter(centerSplit);
         root.setBottom(logArea);
 
-        log("TexFlow 已就绪。拖拽图片到左侧列表，或点击\"导入图片\"。");
-        log("支持的操作：通道打包(MRAO)、Mipmap 生成。");
+        log("TexFlow 已就绪。");
     }
 
     private ToolBar createToolbar() {
-        Button importBtn = new Button("📁 导入图片");
+        Button importBtn = new Button("导入图片");
         importBtn.setOnAction(e -> importImages());
 
-        Button clearBtn = new Button("🗑 清空列表");
+        Button importFolderBtn = new Button("导入文件夹");
+        importFolderBtn.setOnAction(e -> onImportFolder());
+
+        Button clearBtn = new Button("清空");
         clearBtn.setOnAction(e -> clearAll());
 
-        undoBtn = new Button("↩ 撤销");
-        undoBtn.setStyle("-fx-background-color: #313244; -fx-text-fill: #6c7086;");
+        undoBtn = new Button("撤销");
         undoBtn.setDisable(true);
         undoBtn.setOnAction(e -> onUndo());
 
-        redoBtn = new Button("↪ 重做");
-        redoBtn.setStyle("-fx-background-color: #313244; -fx-text-fill: #6c7086;");
+        redoBtn = new Button("重做");
         redoBtn.setDisable(true);
         redoBtn.setOnAction(e -> onRedo());
 
-        ToolBar toolbar = new ToolBar(importBtn, clearBtn, undoBtn, redoBtn);
+        ToolBar toolbar = new ToolBar(importBtn, importFolderBtn, clearBtn, undoBtn, redoBtn);
         toolbar.setStyle("-fx-background-color: #313244;");
         return toolbar;
     }
 
-    private VBox createFileListPanel() {
+    private VBox createImageListPanel() {
         VBox panel = new VBox(8);
         panel.setPadding(new Insets(8));
         panel.setStyle("-fx-background-color: #181825;");
 
-        Label title = new Label("📋 已加载纹理");
+        Label title = new Label("图片列表");
         title.setStyle("-fx-text-fill: #cdd6f4; -fx-font-weight: bold;");
 
-        // 拖拽区域 — 存为字段，方便后续动态刷新
-        dropZone = new VBox(8);
-        dropZone.setPadding(new Insets(12));
-        dropZone.setStyle("-fx-border-color: #45475a; -fx-border-width: 2; -fx-border-radius: 8; "
-                + "-fx-border-style: dashed; -fx-background-color: #1e1e2e;");
-        dropZone.setPrefHeight(120);
+        Label hint = new Label("把图片拖到列表里即可导入");
+        hint.setStyle("-fx-text-fill: #6c7086; -fx-font-size: 11px;");
 
-        Label dropLabel = new Label("拖拽图片到此处");
-        dropLabel.setStyle("-fx-text-fill: #6c7086; -fx-font-size: 14px;");
-        dropLabel.setWrapText(true);
-        dropZone.getChildren().add(dropLabel);
+        imageListBox.setPadding(new Insets(8));
+        imageListBox.setFillWidth(true);
+        imageListScroll.setFitToWidth(true);
+        imageListScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+        imageListScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        imageListScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        imageListScroll.setPrefViewportHeight(180);
 
-        // === 拖拽导入事件 ===
-        dropZone.setOnDragOver((DragEvent event) -> {
-            if (event.getGestureSource() != dropZone
-                    && event.getDragboard().hasFiles()) {
+        installDropTarget(imageListScroll);
+        installDropTarget(imageListBox);
+        refreshFileList();
+
+        panel.getChildren().addAll(title, hint, imageListScroll);
+        VBox.setVgrow(imageListScroll, Priority.ALWAYS);
+        return panel;
+    }
+
+    private void installDropTarget(Node target) {
+        target.setOnDragOver(event -> {
+            if (event.getDragboard().hasFiles()) {
                 event.acceptTransferModes(TransferMode.COPY);
             }
             event.consume();
         });
 
-        dropZone.setOnDragDropped((DragEvent event) -> {
+        target.setOnDragDropped(event -> {
             Dragboard db = event.getDragboard();
             boolean success = false;
             if (db.hasFiles()) {
-                for (File file : db.getFiles()) {
-                    String name = file.getName().toLowerCase();
-                    if (name.endsWith(".png") || name.endsWith(".jpg")
-                            || name.endsWith(".jpeg") || name.endsWith(".tga")
-                            || name.endsWith(".bmp")) {
-                        loadImage(file.toPath());
-                    }
-                }
-                success = !db.getFiles().isEmpty();
+                importFiles(db.getFiles());
+                success = true;
             }
             event.setDropCompleted(success);
             event.consume();
         });
-
-        ScrollPane scrollPane = new ScrollPane(dropZone);
-        scrollPane.setFitToWidth(true);
-        scrollPane.setPrefViewportHeight(150);
-
-        panel.getChildren().addAll(title, scrollPane);
-        return panel;
     }
 
     private void importImages() {
         FileChooser chooser = new FileChooser();
-        chooser.setTitle("选择纹理文件");
+        chooser.setTitle("导入图片");
         chooser.getExtensionFilters().add(
                 new FileChooser.ExtensionFilter("图片文件", "*.png", "*.jpg", "*.jpeg", "*.tga", "*.bmp"));
         List<File> files = chooser.showOpenMultipleDialog(root.getScene().getWindow());
         if (files != null) {
-            for (File file : files) {
-                loadImage(file.toPath());
-            }
+            importFiles(files);
         }
     }
 
     void onImportFolder() {
         var chooser = new javafx.stage.DirectoryChooser();
-        chooser.setTitle("选择纹理文件夹");
+        chooser.setTitle("导入文件夹");
         File dir = chooser.showDialog(root.getScene().getWindow());
         if (dir == null) return;
 
-        File[] files = dir.listFiles((f, name) -> {
-            String lower = name.toLowerCase();
-            return lower.endsWith(".png") || lower.endsWith(".jpg")
-                    || lower.endsWith(".jpeg") || lower.endsWith(".tga")
-                    || lower.endsWith(".bmp");
-        });
-
+        File[] files = dir.listFiles((f, name) -> isSupportedImage(name));
         if (files == null || files.length == 0) {
-            log("⚠ 文件夹中没有找到图片文件");
+            log("文件夹里没有找到可导入的图片。");
             return;
         }
 
-        log("导入文件夹: " + dir.getAbsolutePath() + " (" + files.length + " 张)");
+        importFiles(List.of(files));
+    }
+
+    private void importFiles(List<File> files) {
         for (File file : files) {
-            loadImage(file.toPath());
+            if (file != null && isSupportedImage(file.getName())) {
+                loadImage(file.toPath());
+            }
         }
+    }
+
+    private boolean isSupportedImage(String name) {
+        String lower = name.toLowerCase();
+        return lower.endsWith(".png") || lower.endsWith(".jpg")
+                || lower.endsWith(".jpeg") || lower.endsWith(".tga")
+                || lower.endsWith(".bmp");
     }
 
     private void loadImage(Path path) {
@@ -219,36 +196,83 @@ public class MainWindow {
             loadedImages.add(tex);
             refreshFileList();
             refreshChannelCombos();
-            log("加载: " + tex);
-            // 自动预览第一张
+            log("已导入: " + tex.getName());
             if (loadedImages.size() == 1) {
                 imagePreview.show(tex);
             }
         } catch (Exception e) {
-            log("错误: 无法加载 " + path.getFileName() + " - " + e.getMessage());
+            log("导入失败: " + path.getFileName() + " - " + e.getMessage());
         }
     }
 
     private void refreshFileList() {
-        dropZone.getChildren().clear();
+        imageListBox.getChildren().clear();
+        if (loadedImages.isEmpty()) {
+            Label empty = new Label("把图片拖到这里，或用上方按钮导入");
+            empty.setStyle("-fx-text-fill: #6c7086;");
+            empty.setPadding(new Insets(8));
+            imageListBox.getChildren().add(empty);
+            return;
+        }
 
         for (int i = 0; i < loadedImages.size(); i++) {
             TextureImage tex = loadedImages.get(i);
-            Label item = new Label((i + 1) + ". " + tex.getName() + "  (" + tex.getWidth() + "x" + tex.getHeight() + ")");
-            item.setStyle("-fx-text-fill: #a6adc8; -fx-cursor: hand; -fx-padding: 2 0;");
-            final int idx = i;
-            item.setOnMouseClicked(e -> {
-                imagePreview.show(loadedImages.get(idx));
-                log("预览: " + loadedImages.get(idx));
-            });
-            dropZone.getChildren().add(item);
+            imageListBox.getChildren().add(createImageListItem(tex, i));
         }
+    }
 
-        if (loadedImages.isEmpty()) {
-            Label emptyLabel = new Label("拖拽图片到此处");
-            emptyLabel.setStyle("-fx-text-fill: #6c7086;");
-            dropZone.getChildren().add(emptyLabel);
-        }
+    private HBox createImageListItem(TextureImage tex, int index) {
+        ImageView thumb = new ImageView(createThumbnail(tex));
+        thumb.setFitWidth(44);
+        thumb.setFitHeight(44);
+        thumb.setPreserveRatio(true);
+        thumb.setSmooth(true);
+
+        Label name = new Label(tex.getName());
+        name.setStyle("-fx-text-fill: #cdd6f4; -fx-font-weight: bold;");
+        name.setWrapText(true);
+        name.setMaxWidth(Double.MAX_VALUE);
+
+        Label meta = new Label(tex.getWidth() + "x" + tex.getHeight());
+        meta.setStyle("-fx-text-fill: #6c7086; -fx-font-size: 11px;");
+
+        VBox textBox = new VBox(2, name, meta);
+        HBox.setHgrow(textBox, Priority.ALWAYS);
+
+        HBox item = new HBox(10, thumb, textBox);
+        item.setAlignment(Pos.CENTER_LEFT);
+        item.setPadding(new Insets(8));
+        item.setMaxWidth(Double.MAX_VALUE);
+        item.setStyle("-fx-background-color: #1e1e2e; -fx-background-radius: 6; -fx-cursor: hand;");
+        item.setOnMouseEntered(e ->
+                item.setStyle("-fx-background-color: #26263a; -fx-background-radius: 6; -fx-cursor: hand;"));
+        item.setOnMouseExited(e ->
+                item.setStyle("-fx-background-color: #1e1e2e; -fx-background-radius: 6; -fx-cursor: hand;"));
+        item.setOnMouseClicked(e -> {
+            imagePreview.show(loadedImages.get(index));
+            log("选中: " + loadedImages.get(index).getName());
+        });
+        return item;
+    }
+
+    private javafx.scene.image.Image createThumbnail(TextureImage tex) {
+        return thumbnailCache.computeIfAbsent(tex, t -> {
+            BufferedImage src = t.getImage();
+            int maxSize = 48;
+            double scale = Math.min((double) maxSize / src.getWidth(), (double) maxSize / src.getHeight());
+            int width = Math.max(1, (int) Math.round(src.getWidth() * scale));
+            int height = Math.max(1, (int) Math.round(src.getHeight() * scale));
+            BufferedImage thumb = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g = thumb.createGraphics();
+            try {
+                g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                g.drawImage(src, 0, 0, width, height, null);
+            } finally {
+                g.dispose();
+            }
+            return SwingFXUtils.toFXImage(thumb, null);
+        });
     }
 
     private void refreshChannelCombos() {
@@ -257,7 +281,7 @@ public class MainWindow {
         String currentB = bChannelCombo.getValue();
 
         List<String> names = new ArrayList<>();
-        names.add("(无 — 白=1.0)");
+        names.add(NONE_OPTION);
         for (TextureImage t : loadedImages) {
             names.add(t.getName());
         }
@@ -266,48 +290,42 @@ public class MainWindow {
         gChannelCombo.getItems().setAll(names);
         bChannelCombo.getItems().setAll(names);
 
-        if (currentR != null && names.contains(currentR)) rChannelCombo.setValue(currentR);
-        else rChannelCombo.setValue(names.get(0));
-        if (currentG != null && names.contains(currentG)) gChannelCombo.setValue(currentG);
-        else gChannelCombo.setValue(names.get(0));
-        if (currentB != null && names.contains(currentB)) bChannelCombo.setValue(currentB);
-        else bChannelCombo.setValue(names.get(0));
+        rChannelCombo.setValue(names.contains(currentR) ? currentR : NONE_OPTION);
+        gChannelCombo.setValue(names.contains(currentG) ? currentG : NONE_OPTION);
+        bChannelCombo.setValue(names.contains(currentB) ? currentB : NONE_OPTION);
     }
 
     void onPackChannels() {
         if (loadedImages.isEmpty()) {
-            log("⚠ 请先导入图片");
+            log("请先导入图片。");
             return;
         }
+
         TextureImage r = findImageByName(getComboValue(rChannelCombo));
         TextureImage g = findImageByName(getComboValue(gChannelCombo));
         TextureImage b = findImageByName(getComboValue(bChannelCombo));
 
         if (r == null && g == null && b == null) {
-            log("⚠ 至少选择一张图片用于通道打包");
+            log("没有选择任何通道。");
             return;
         }
 
-        // 保存当前预览状态到历史
         TextureImage currentPreview = imagePreview.getCurrentTexture();
         if (currentPreview != null) {
             history.pushState(currentPreview);
         }
 
-        log("开始通道打包...");
+        log("正在合成通道...");
         PipelineEngine.packChannelsAsync(r, g, b)
                 .thenAccept(result -> Platform.runLater(() -> {
-                    log("✓ " + result.message);
+                    log(result.message);
                     if (!result.outputs.isEmpty()) {
                         imagePreview.show(result.outputs.get(0));
                     }
                     updateUndoRedoButtons();
                 }))
                 .exceptionally(ex -> {
-                    Platform.runLater(() -> {
-                        log("✗ 打包失败: " + ex.getMessage());
-                        ex.printStackTrace();
-                    });
+                    Platform.runLater(() -> log("通道合成失败: " + ex.getMessage()));
                     return null;
                 });
     }
@@ -318,26 +336,23 @@ public class MainWindow {
             selected = loadedImages.get(0);
         }
         if (selected == null) {
-            log("⚠ 请先导入并选择一张图片");
+            log("请先导入图片。");
             return;
         }
 
-        // 保存当前预览状态到历史
         TextureImage currentPreview = imagePreview.getCurrentTexture();
         if (currentPreview != null) {
             history.pushState(currentPreview);
         }
 
-        log("开始生成 Mipmap: " + selected.getName());
+        log("正在生成 Mipmap: " + selected.getName());
         PipelineEngine.generateMipmapsAsync(selected)
                 .thenAccept(result -> Platform.runLater(() -> {
-                    log("✓ " + result.message);
-                    // 把所有 Mipmap 级别加入文件列表，用户可以逐个点击查看
+                    log(result.message);
                     for (TextureImage mip : result.outputs) {
                         loadedImages.add(mip);
                     }
                     refreshFileList();
-                    // 预览显示第一级缩小版本（mip1），让用户直观看到变化
                     if (result.outputs.size() > 1) {
                         imagePreview.show(result.outputs.get(1));
                     } else if (!result.outputs.isEmpty()) {
@@ -346,10 +361,7 @@ public class MainWindow {
                     updateUndoRedoButtons();
                 }))
                 .exceptionally(ex -> {
-                    Platform.runLater(() -> {
-                        log("✗ Mipmap 生成失败: " + ex.getMessage());
-                        ex.printStackTrace();
-                    });
+                    Platform.runLater(() -> log("Mipmap 生成失败: " + ex.getMessage()));
                     return null;
                 });
     }
@@ -360,36 +372,30 @@ public class MainWindow {
             selected = loadedImages.get(0);
         }
         if (selected == null) {
-            log("⚠ 请先导入并选择一张高度图");
+            log("请先导入图片。");
             return;
         }
 
-        // 保存当前预览状态到历史
         TextureImage currentPreview = imagePreview.getCurrentTexture();
         if (currentPreview != null) {
             history.pushState(currentPreview);
         }
 
         String modeText = pipelinePanel.getEdgeModeCombo().getValue();
-        boolean wrap = modeText != null && modeText.startsWith("Wrap");
+        boolean wrap = modeText != null && modeText.startsWith("环绕");
         float strength = (float) pipelinePanel.getStrengthSlider().getValue();
 
-        log("开始生成法线贴图: " + selected.getName()
-                + " (strength=" + strength + ", mode=" + (wrap ? "Wrap" : "Clamp") + ")");
-
+        log("正在生成法线图: " + selected.getName());
         PipelineEngine.generateNormalMapAsync(selected, strength, wrap)
                 .thenAccept(result -> Platform.runLater(() -> {
-                    log("✓ " + result.message);
+                    log(result.message);
                     if (!result.outputs.isEmpty()) {
                         imagePreview.show(result.outputs.get(0));
                     }
                     updateUndoRedoButtons();
                 }))
                 .exceptionally(ex -> {
-                    Platform.runLater(() -> {
-                        log("✗ 法线生成失败: " + ex.getMessage());
-                        ex.printStackTrace();
-                    });
+                    Platform.runLater(() -> log("法线图生成失败: " + ex.getMessage()));
                     return null;
                 });
     }
@@ -397,21 +403,21 @@ public class MainWindow {
     void onExport() {
         TextureImage current = imagePreview.getCurrentTexture();
         if (current == null) {
-            log("⚠ 没有可导出的纹理");
+            log("没有可导出的图片。");
             return;
         }
+
         FileChooser chooser = new FileChooser();
-        chooser.setTitle("导出纹理");
+        chooser.setTitle("导出 PNG");
         chooser.setInitialFileName(current.getName());
-        chooser.getExtensionFilters().add(
-                new FileChooser.ExtensionFilter("PNG 图片", "*.png"));
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("PNG 文件", "*.png"));
         File file = chooser.showSaveDialog(root.getScene().getWindow());
         if (file != null) {
             try {
                 current.saveTo(file.toPath(), "png");
-                log("✓ 导出成功: " + file.getAbsolutePath());
+                log("已导出 PNG: " + file.getAbsolutePath());
             } catch (IOException e) {
-                log("✗ 导出失败: " + e.getMessage());
+                log("PNG 导出失败: " + e.getMessage());
             }
         }
     }
@@ -419,15 +425,14 @@ public class MainWindow {
     void onExportWebP() {
         TextureImage current = imagePreview.getCurrentTexture();
         if (current == null) {
-            log("⚠ 没有可导出的纹理");
+            log("没有可导出的图片。");
             return;
         }
+
         FileChooser chooser = new FileChooser();
         chooser.setTitle("导出 WebP");
-        String webpName = current.getName().replaceFirst("\\.[^.]+$", "") + ".webp";
-        chooser.setInitialFileName(webpName);
-        chooser.getExtensionFilters().add(
-                new FileChooser.ExtensionFilter("WebP 图片", "*.webp"));
+        chooser.setInitialFileName(current.getName().replaceFirst("\\.[^.]+$", "") + ".webp");
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("WebP 文件", "*.webp"));
         File file = chooser.showSaveDialog(root.getScene().getWindow());
         if (file != null) {
             float quality = (float) pipelinePanel.getWebpQualitySlider().getValue();
@@ -439,9 +444,9 @@ public class MainWindow {
                     throw new RuntimeException(e);
                 }
             }).thenAccept(path -> Platform.runLater(() ->
-                    log("✓ WebP 导出成功 (q=" + String.format("%.0f", quality) + "): " + path)))
+                    log("已导出 WebP: " + path)))
               .exceptionally(ex -> {
-                  Platform.runLater(() -> log("✗ WebP 导出失败: " + ex.getMessage()));
+                  Platform.runLater(() -> log("WebP 导出失败: " + ex.getMessage()));
                   return null;
               });
         }
@@ -462,28 +467,26 @@ public class MainWindow {
     private void exportDDS(Format format, String label) {
         TextureImage current = imagePreview.getCurrentTexture();
         if (current == null) {
-            log("⚠ 没有可导出的纹理");
+            log("没有可导出的图片。");
             return;
         }
+
         BufferedImage image = current.getImage();
         if (image.getWidth() % 4 != 0 || image.getHeight() % 4 != 0) {
-            log("⚠ " + label + " 压缩要求宽高为 4 的倍数，当前: "
-                    + image.getWidth() + "x" + image.getHeight());
+            log("无法导出 " + label + "，尺寸必须是 4 的倍数。");
             return;
         }
+
         FileChooser chooser = new FileChooser();
-        chooser.setTitle("导出 DDS (" + label + ")");
-        String ddsName = current.getName().replaceFirst("\\.[^.]+$", "") + ".dds";
-        chooser.setInitialFileName(ddsName);
-        chooser.getExtensionFilters().add(
-                new FileChooser.ExtensionFilter("DDS 纹理", "*.dds"));
+        chooser.setTitle("导出 DDS");
+        chooser.setInitialFileName(current.getName().replaceFirst("\\.[^.]+$", "") + ".dds");
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("DDS 文件", "*.dds"));
         File file = chooser.showSaveDialog(root.getScene().getWindow());
         if (file != null) {
             int origSize = image.getWidth() * image.getHeight() * 4;
-            int compSize = TextureCompressor.compressedSize(
-                    image.getWidth(), image.getHeight(), format);
+            int compSize = TextureCompressor.compressedSize(image.getWidth(), image.getHeight(), format);
             float ratio = (float) compSize / origSize * 100;
-            String sizeInfo = String.format("(%.1f%%, %d→%d bytes)", ratio, origSize, compSize);
+            String sizeInfo = String.format("(%.1f%%, %d -> %d bytes)", ratio, origSize, compSize);
 
             CompletableFuture.supplyAsync(() -> {
                 try {
@@ -493,9 +496,9 @@ public class MainWindow {
                     throw new RuntimeException(e);
                 }
             }).thenAccept(path -> Platform.runLater(() ->
-                    log("✓ DDS(" + label + ") 导出成功 " + sizeInfo + ": " + path)))
+                    log("已导出 DDS(" + label + ") " + sizeInfo + ": " + path)))
               .exceptionally(ex -> {
-                  Platform.runLater(() -> log("✗ DDS 导出失败: " + ex.getMessage()));
+                  Platform.runLater(() -> log("DDS 导出失败: " + ex.getMessage()));
                   return null;
               });
         }
@@ -503,111 +506,100 @@ public class MainWindow {
 
     void onBatchNormalMaps() {
         if (loadedImages.isEmpty()) {
-            log("⚠ 请先导入高度图（可点击\"导入文件夹\"批量加载）");
+            log("请先导入图片。");
             return;
         }
-        String modeText = pipelinePanel.getEdgeModeCombo().getValue();
-        boolean wrap = modeText != null && modeText.startsWith("Wrap");
-        float strength = (float) pipelinePanel.getStrengthSlider().getValue();
 
+        String modeText = pipelinePanel.getEdgeModeCombo().getValue();
+        boolean wrap = modeText != null && modeText.startsWith("环绕");
+        float strength = (float) pipelinePanel.getStrengthSlider().getValue();
         int total = loadedImages.size();
-        log("⚡ 开始批量生成法线贴图 (strength=" + String.format("%.1f", strength)
-                + ", mode=" + (wrap ? "Wrap" : "Clamp") + ", " + total + " 张)...");
+
+        log("批量生成法线图: " + total + " 张");
 
         BatchProcessor processor = new BatchProcessor();
         CompletableFuture.supplyAsync(() -> {
             List<TextureImage> results = processor.batchNormalMaps(
                     loadedImages, strength, wrap,
                     (completed, totalCount, name) ->
-                            Platform.runLater(() ->
-                                    log(String.format("[%d/%d] ✓ %s", completed, totalCount, name))));
+                            Platform.runLater(() -> log(String.format("[%d/%d] %s", completed, totalCount, name))));
             processor.shutdown();
             return results;
         }).thenAccept(results -> Platform.runLater(() -> {
-            long successCount = results.stream().filter(r -> r != null).count();
-            log("✓ 批量法线贴图完成: " + successCount + "/" + total + " 张");
-            if (successCount > 0 && results.get(0) != null) {
-                imagePreview.show(results.get(0));
-            }
+            long successCount = results.stream().filter(t -> t != null).count();
+            log("批量法线图完成: " + successCount + "/" + total);
+            results.stream().filter(t -> t != null).findFirst().ifPresent(imagePreview::show);
         })).exceptionally(ex -> {
-            Platform.runLater(() -> log("✗ 批量处理失败: " + ex.getMessage()));
+            Platform.runLater(() -> log("批量法线图失败: " + ex.getMessage()));
             return null;
         });
     }
 
     void onBatchMipmaps() {
         if (loadedImages.isEmpty()) {
-            log("⚠ 请先导入纹理（可点击\"导入文件夹\"批量加载）");
+            log("请先导入图片。");
             return;
         }
+
         int total = loadedImages.size();
-        log("⚡ 开始批量生成 Mipmap (" + total + " 张)...");
+        log("批量生成 Mipmap: " + total + " 张");
 
         BatchProcessor processor = new BatchProcessor();
         CompletableFuture.supplyAsync(() -> {
             List<List<BufferedImage>> results = processor.batchMipmaps(
                     loadedImages,
                     (completed, totalCount, name) ->
-                            Platform.runLater(() ->
-                                    log(String.format("[%d/%d] ✓ %s", completed, totalCount, name))));
+                            Platform.runLater(() -> log(String.format("[%d/%d] %s", completed, totalCount, name))));
             processor.shutdown();
             return results;
         }).thenAccept(results -> Platform.runLater(() -> {
-            long successCount = results.stream().filter(r -> r != null).count();
-            long totalMips = results.stream()
-                    .filter(r -> r != null)
-                    .mapToLong(List::size)
-                    .sum();
-            log("✓ 批量 Mipmap 完成: " + successCount + "/" + total
-                    + " 张，共 " + totalMips + " 级");
-            if (successCount > 0 && !loadedImages.isEmpty()) {
+            long successCount = results.stream().filter(t -> t != null).count();
+            long totalMips = results.stream().filter(t -> t != null).mapToLong(List::size).sum();
+            log("批量 Mipmap 完成: " + successCount + "/" + total + "，生成 " + totalMips + " 张");
+            if (!loadedImages.isEmpty()) {
                 imagePreview.show(loadedImages.get(0));
             }
         })).exceptionally(ex -> {
-            Platform.runLater(() -> log("✗ 批量处理失败: " + ex.getMessage()));
+            Platform.runLater(() -> log("批量 Mipmap 失败: " + ex.getMessage()));
             return null;
         });
     }
 
     void onBatchWebP() {
         if (loadedImages.isEmpty()) {
-            log("⚠ 请先导入纹理（可点击\"导入文件夹\"批量加载）");
+            log("请先导入图片。");
             return;
         }
+
         var chooser = new javafx.stage.DirectoryChooser();
-        chooser.setTitle("选择 WebP 输出目录");
+        chooser.setTitle("批量导出 WebP");
         File dir = chooser.showDialog(root.getScene().getWindow());
         if (dir == null) return;
 
         int total = loadedImages.size();
         float quality = (float) pipelinePanel.getWebpQualitySlider().getValue();
-        log("⚡ 开始批量导出 WebP (q=" + String.format("%.0f", quality)
-                + ", " + total + " 张)...");
+        log("批量导出 WebP: " + total + " 张");
 
         CompletableFuture.supplyAsync(() -> {
             try {
                 return FormatConverter.batchToWebP(loadedImages, dir.toPath(), quality,
                         (completed, totalCount, name) ->
-                                Platform.runLater(() ->
-                                        log(String.format("[%d/%d] ✓ %s", completed, totalCount, name))));
+                                Platform.runLater(() -> log(String.format("[%d/%d] %s", completed, totalCount, name))));
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         }).thenAccept(results -> Platform.runLater(() -> {
-            long successCount = results.stream().filter(r -> r != null).count();
-            log("✓ 批量 WebP 导出完成: " + successCount + "/" + total
-                    + " 张 → " + dir.getAbsolutePath());
+            long successCount = results.stream().filter(t -> t != null).count();
+            log("批量 WebP 完成: " + successCount + "/" + total + "，目录 " + dir.getAbsolutePath());
         })).exceptionally(ex -> {
-            Platform.runLater(() -> log("✗ 批量 WebP 导出失败: " + ex.getMessage()));
+            Platform.runLater(() -> log("批量 WebP 失败: " + ex.getMessage()));
             return null;
         });
     }
 
     private TextureImage findImageByName(String name) {
-        if (name == null || name.equals("(无 — 白=1.0)")) return null;
-        return loadedImages.stream()
-                .filter(t -> t.getName().equals(name))
-                .findFirst().orElse(null);
+        if (name == null || NONE_OPTION.equals(name)) return null;
+        return loadedImages.stream().filter(t -> t.getName().equals(name)).findFirst().orElse(null);
     }
 
     private String getComboValue(ComboBox<String> combo) {
@@ -616,6 +608,7 @@ public class MainWindow {
 
     private void clearAll() {
         loadedImages.clear();
+        thumbnailCache.clear();
         refreshFileList();
         refreshChannelCombos();
         imagePreview.clear();
@@ -628,11 +621,10 @@ public class MainWindow {
     void onUndo() {
         TextureImage current = imagePreview.getCurrentTexture();
         if (current == null) return;
-
         TextureImage prevState = history.undo(current);
         if (prevState != null) {
             imagePreview.show(prevState);
-            log("↩ 撤销");
+            log("撤销");
             updateUndoRedoButtons();
         }
     }
@@ -640,11 +632,10 @@ public class MainWindow {
     void onRedo() {
         TextureImage current = imagePreview.getCurrentTexture();
         if (current == null) return;
-
         TextureImage nextState = history.redo(current);
         if (nextState != null) {
             imagePreview.show(nextState);
-            log("↪ 重做");
+            log("重做");
             updateUndoRedoButtons();
         }
     }
@@ -665,10 +656,10 @@ public class MainWindow {
     }
 
     void log(String msg) {
-        Platform.runLater(() -> {
-            logArea.appendText(msg + "\n");
-        });
+        Platform.runLater(() -> logArea.appendText(msg + "\n"));
     }
 
-    public BorderPane getRoot() { return root; }
+    public BorderPane getRoot() {
+        return root;
+    }
 }
